@@ -329,6 +329,7 @@ class PyTorchConverter:
             "allgather": ALL_GATHER,
             "reducescatter": REDUCE_SCATTER,
             "broadcast": BROADCAST,
+            "sendrecv": ALL_REDUCE,
             # Additional cases can be added here
         }
 

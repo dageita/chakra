@@ -794,7 +794,7 @@ class TraceLinker:
                         correlation ID.
         """
         if kineto_gpu_op.correlation not in self.kineto_cuda_runtime:
-            warning_msg = "No CUDA runtime operator found for correlation ID {kineto_gpu_op.correlation}."
+            warning_msg = f"No CUDA runtime operator found for correlation ID {kineto_gpu_op.correlation}."
             self.logger.warning(warning_msg)
             return None
 
