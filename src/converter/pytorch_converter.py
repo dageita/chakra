@@ -100,6 +100,15 @@ class PyTorchConverter:
 
         self.open_chakra_execution_trace()
 
+        collective_comm_count = {
+           "allreduce": 0,
+            "alltoall": 0,
+            "allgather": 0,
+            "reducescatter": 0,
+            "broadcast": 0,
+            "sendrecv": 0,
+        }
+
         for _, pytorch_node in self.pytorch_nodes.items():
             if (pytorch_node.get_op_type() == PyTorchNodeType.CPU_OP) or (
                 pytorch_node.get_op_type() == PyTorchNodeType.LABEL
@@ -111,7 +120,7 @@ class PyTorchConverter:
                     chakra_gpu_node = self.convert_to_chakra_node(pytorch_gpu_node)
 
                     if chakra_node.type == COMM_COLL_NODE:
-                        collective_comm_type = self.get_collective_comm_type(pytorch_gpu_node.name)
+                        collective_comm_type = self.get_collective_comm_type(pytorch_gpu_node.name, pytorch_gpu_node.id, collective_comm_count)
                         chakra_gpu_node.attr.extend(
                             [
                                 ChakraAttr(name="comm_type", int64_val=collective_comm_type),
@@ -120,6 +129,8 @@ class PyTorchConverter:
                         )
 
                     self.chakra_nodes[chakra_gpu_node.id] = chakra_gpu_node
+
+        self.logger.info(f"wxftest collective_comm_count: {collective_comm_count}")
 
         root_nodes = [node for node in self.chakra_nodes.values() if self.is_root_node(node)]
         for root_node in root_nodes:
@@ -310,7 +321,7 @@ class PyTorchConverter:
             return COMM_COLL_NODE
         return COMP_NODE
 
-    def get_collective_comm_type(self, name: str) -> int:
+    def get_collective_comm_type(self, name: str, node_id: int, count: dict) -> int:
         """
         Returns the collective communication type of the node.
 
@@ -329,13 +340,15 @@ class PyTorchConverter:
             "allgather": ALL_GATHER,
             "reducescatter": REDUCE_SCATTER,
             "broadcast": BROADCAST,
-            "sendrecv": ALL_REDUCE,
+            "sendrecv": ALL_TO_ALL,
             # Additional cases can be added here
         }
 
-        normalized_name = name.replace("_", "").replace("-", "").lower()
+        normalized_name = name.replace("_", "").replace("-", "").replace(":", "").lower()
         for key in comm_type_mapping:
             if key in normalized_name:
+                count[key] += 1
+                self.logger.info(f"wxftest: comm type {key}, id {node_id}, normalized_name: {normalized_name}")
                 return comm_type_mapping[key]
 
         raise ValueError(

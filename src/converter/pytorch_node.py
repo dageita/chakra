@@ -71,9 +71,9 @@ class PyTorchNode:
         Args:
             node_data (Dict[str, Any]): The node data to be parsed.
         """
-        supported_versions = ["1.0.2-chakra.0.0.4", "1.0.3-chakra.0.0.4"]
+        supported_versions = ["1.0.2-chakra.0.0.4", "1.0.3-chakra.0.0.4", "1.1.0-chakra.0.0.4"]
         if self.schema in supported_versions:
-            if self.schema == "1.0.2-chakra.0.0.4" or self.schema == "1.0.3-chakra.0.0.4":
+            if self.schema == "1.0.2-chakra.0.0.4" or self.schema == "1.0.3-chakra.0.0.4" or self.schema == "1.1.0-chakra.0.0.4":
                 self._parse_data_1_0_3_chakra_0_0_4(node_data)
         else:
             raise ValueError(

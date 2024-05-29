@@ -725,10 +725,14 @@ class TraceLinker:
                 f" A warning is logged if this is not the case, which is a rare "
                 f"but possible scenario."
             )
-
+        # self.logger.info(f'wxftest: map_pytorch_to_kineto_ops kineto_rf_id_to_kineto_op_map {self.kineto_rf_id_to_kineto_op_map}')
         for _, pytorch_op in enumerate(self.pytorch_ops):
+            # self.logger.info(f'wxftest: pytorch_ops rf id {pytorch_op.rf_id}, name {pytorch_op.name}')
             if (pytorch_op.rf_id is not None) and (pytorch_op.rf_id in self.kineto_rf_id_to_kineto_op_map):
+            # if (pytorch_op.rf_id is not None):
                 kineto_op = self.kineto_rf_id_to_kineto_op_map[pytorch_op.rf_id]
+                if "nccl" in kineto_op.name:
+                    self.logger.info(f'wxftest: link_ops kineto_op name {kineto_op.name}, kineto id {kineto_op.rf_id}, pytorch id {pytorch_op.rf_id}')
                 if kineto_op is None:
                     self.logger.warning(
                         f"No corresponding Kineto op found for PyTorch op "
@@ -794,7 +798,7 @@ class TraceLinker:
                         correlation ID.
         """
         if kineto_gpu_op.correlation not in self.kineto_cuda_runtime:
-            warning_msg = f"No CUDA runtime operator found for correlation ID {kineto_gpu_op.correlation}."
+            warning_msg = "No CUDA runtime operator found for correlation ID {kineto_gpu_op.correlation}."
             self.logger.warning(warning_msg)
             return None
 
@@ -986,6 +990,8 @@ class TraceLinker:
 
         # Process and append dependent GPU operators
         if orig_op_id in self.pytorch_op_id_to_kineto_ops_map:
+            # if "nccl" in op["name"]:
+                # self.logger.info(f'wxftest: op name {op["name"]}')
             gpu_ops = self.process_dependent_gpu_ops(op, orig_op_id)
             self.pytorch_op_id_to_kineto_ops_map.pop(orig_op_id)
             return gpu_ops
