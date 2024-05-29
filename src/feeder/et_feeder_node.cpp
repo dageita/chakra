@@ -1,4 +1,4 @@
-#include "et_feeder/et_feeder_node.h"
+#include "et_feeder_node.h"
 
 using namespace std;
 using namespace Chakra;
@@ -14,7 +14,7 @@ ETFeederNode::ETFeederNode(std::shared_ptr<ChakraProtoMsg::Node> node) {
     const string& attr_name = attr.name();
 
     if (attr_name == "is_cpu_op") {
-      this->is_cpu_op_ = static_cast<uint32_t>(attr.int32_val());
+      this->is_cpu_op_ = static_cast<bool>(attr.bool_val());
     } else if (attr_name == "num_ops") {
       this->num_ops_ = static_cast<uint64_t>(attr.int64_val());
     } else if (attr_name == "tensor_size") {
