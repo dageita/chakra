@@ -117,7 +117,9 @@ class PyTorchConverter:
                 self.chakra_nodes[chakra_node.id] = chakra_node
 
                 for pytorch_gpu_node in pytorch_node.gpu_children:
+
                     chakra_gpu_node = self.convert_to_chakra_node(pytorch_gpu_node)
+                    self.logger.info(f"wxftest pytorch_gpu_node: {chakra_gpu_node}")
 
                     if chakra_node.type == COMM_COLL_NODE:
                         collective_comm_type = self.get_collective_comm_type(pytorch_gpu_node.name, pytorch_gpu_node.id, collective_comm_count)
@@ -217,6 +219,7 @@ class PyTorchConverter:
                 parent_node.add_child(pytorch_node)
 
                 if pytorch_node.is_gpu_op():
+                    self.logger.info(f"wxftest _establish_parent_child_relationships is gpu op: {pytorch_node}")
                     parent_node.add_gpu_child(pytorch_node)
 
                 if pytorch_node.is_record_param_comms_op():

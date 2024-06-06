@@ -6,14 +6,14 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional, Tuple
 
-from param_bench.train.compute.python.tools.execution_trace import (
+from et_replay.lib.execution_trace import (
     EXECUTION_TRACE_PROCESS_ANNOTATION,
     EXECUTION_TRACE_THREAD_ANNOTATION,
 )
-from param_bench.train.compute.python.tools.execution_trace import (
+from et_replay.lib.execution_trace import (
     Node as PyTorchOperator,
 )
-from param_bench.train.compute.python.tools.utility import (
+from et_replay.lib.utils import (
     load_execution_trace_file,
     read_dictionary_from_json_file,
 )
@@ -110,34 +110,47 @@ class TraceLinker:
         """
         self.logger.info("Starting to load PyTorch Execution Trace.")
         pytorch_et = load_execution_trace_file(self.pytorch_et_file)
+        all_nodes = pytorch_et.get_nodes()
+        # for i in all_nodes:
+        #     self.logger.info(f"wxftest load_pytorch_et node id {i}")
 
         root_node = pytorch_et.get_nodes()[1]  # Root node is usually 1-based
-        self.pytorch_ops = self.extract_pytorch_ops(root_node)
+        self.logger.info(f"wxftest:load_pytorch_et root_node {root_node.id}, {root_node.name}")
+        self.pytorch_ops = self.extract_pytorch_ops(all_nodes)
+        # self.pytorch_ops = self.extract_pytorch_ops(root_node)
         self.logger.info(f"Original ops in PyTorch ET: {len(self.pytorch_ops)}")
         self.logger.info("PyTorch Execution Trace loaded successfully.")
 
-    def extract_pytorch_ops(self, node: PyTorchOperator) -> List[PyTorchOperator]:
-        """
-        Extracts and sorts nodes from the PyTorch execution trace recursively.
-
-        This method traverses the execution trace starting from the provided node, extracting all the operator nodes
-        recursively, and then returns them sorted by their identifiers.
-
-        Args:
-            node (PyTorchOperator): Starting node for extraction.
-
-        Returns:
-            List[PyTorchOperator]: Sorted list of extracted PyTorchOperator nodes.
-        """
+    def extract_pytorch_ops(self, i_nodes: List[PyTorchOperator]) -> List[PyTorchOperator]:
         nodes = []
-
-        def traverse(node: PyTorchOperator):
-            nodes.append(node)
-            for child in node.children:
-                traverse(child)
-
-        traverse(node)
+        for i in i_nodes:
+            self.logger.info(f"wxftest load_pytorch_et node id {i}")
+            nodes.append(i_nodes[i])
         return sorted(nodes, key=lambda x: x.id)
+
+    # def extract_pytorch_ops(self, node: PyTorchOperator) -> List[PyTorchOperator]:
+    #     """
+    #     Extracts and sorts nodes from the PyTorch execution trace recursively.
+
+    #     This method traverses the execution trace starting from the provided node, extracting all the operator nodes
+    #     recursively, and then returns them sorted by their identifiers.
+
+    #     Args:
+    #         node (PyTorchOperator): Starting node for extraction.
+
+    #     Returns:
+    #         List[PyTorchOperator]: Sorted list of extracted PyTorchOperator nodes.
+    #     """
+    #     nodes = []
+
+    #     def traverse(node: PyTorchOperator):
+    #         nodes.append(node)
+    #         self.logger.info(f"wxftest extract_pytorch_ops node id {node.id}")
+    #         for child in node.children:
+    #             traverse(child)
+
+    #     traverse(node)
+    #     return sorted(nodes, key=lambda x: x.id)
 
     def load_kineto_trace(self) -> None:
         """
@@ -489,7 +502,10 @@ class TraceLinker:
                 f"Logging this rare but possible scenario."
             )
 
+        self.logger.debug(f"wxftest: link_ops, cpu_ev_idx_to_gpu_ops_map: {cpu_ev_idx_to_gpu_ops_map}")
+        self.logger.debug(f"wxftest: link_ops, kineto_rf_id_to_kineto_op_map: {self.kineto_rf_id_to_kineto_op_map}")
         for _, pytorch_op in enumerate(self.pytorch_ops):
+            self.logger.debug(f"wxftest: pytorch_op rf_id: {pytorch_op.rf_id}, name: {pytorch_op.name}")
             if (pytorch_op.rf_id is not None) and (pytorch_op.rf_id in self.kineto_rf_id_to_kineto_op_map):
                 kineto_op = self.kineto_rf_id_to_kineto_op_map[pytorch_op.rf_id]
                 if kineto_op is None:
@@ -500,7 +516,7 @@ class TraceLinker:
                         )
                     continue
                 self.link_ops(pytorch_op, kineto_op, cpu_ev_idx_to_gpu_ops_map)
-
+        self.logger.debug(f"wxftest: self.pytorch_op_id_to_kineto_ops_map: {self.pytorch_op_id_to_kineto_ops_map}")
         self.logger.info("Completed mapping of PyTorch operators to Kineto operators.")
 
     def group_gpu_ops_by_cpu_launchers(self) -> Dict[str, List[KinetoOperator]]:
@@ -531,7 +547,7 @@ class TraceLinker:
                 self.logger.warning(error_msg)
                 continue
 
-            self.logger.debug(f"group_gpu_ops_by_cpu_launchers '{parent_cpu_op.name}' -> '{gpu_op.name}'")
+            self.logger.debug(f"group_gpu_ops_by_cpu_launchers '{parent_cpu_op.ev_idx}' : '{parent_cpu_op.name}' -> '{gpu_op.external_id}' :'{gpu_op.name}'")
 
             cpu_ev_idx_to_gpu_ops_map.setdefault(parent_cpu_op.ev_idx, []).append(gpu_op)
 
@@ -553,7 +569,7 @@ class TraceLinker:
             ValueError: If no CUDA runtime operator is found for the given correlation ID.
         """
         if kineto_gpu_op.correlation not in self.kineto_correlation_cuda_runtime_map:
-            warning_msg = "No CUDA runtime operator found for correlation ID {kineto_gpu_op.correlation}."
+            warning_msg = f"No CUDA runtime operator found for correlation ID {kineto_gpu_op.correlation}."
             self.logger.warning(warning_msg)
             return None
 
@@ -645,6 +661,7 @@ class TraceLinker:
         kineto_op.pytorch_op = pytorch_op
         if kineto_op.ev_idx in cpu_ev_idx_to_gpu_ops_map:
             self.pytorch_op_id_to_kineto_ops_map[pytorch_op.id] = cpu_ev_idx_to_gpu_ops_map[kineto_op.ev_idx]
+            self.logger.info(f"wxftest: kineto_op: {kineto_op.ev_idx}: {kineto_op.name}, pytorch op: {pytorch_op.id}")
         self.pytorch_op_id_to_inclusive_dur_map[pytorch_op.id] = kineto_op.inclusive_dur
         self.pytorch_op_id_to_exclusive_dur_map[pytorch_op.id] = kineto_op.exclusive_dur
         self.pytorch_op_id_to_timestamp_map[pytorch_op.id] = kineto_op.timestamp
