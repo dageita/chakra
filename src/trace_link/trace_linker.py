@@ -248,7 +248,7 @@ class TraceLinker:
         defined as the total duration of the operator minus any time spent in child operators, effectively representing
         the time spent exclusively in that operator.
         """
-        self.logger.info("Calculating exclusive durations for Kineto operators in parallel.")
+        self.logger.info("Calculating exclusive durations for Kineto operators in parallel.")    
 
         def process_ops_for_thread(ops: List[KinetoOperator]) -> None:
             self.logger.info(f"Processing {len(ops)} operators in thread.")
@@ -295,6 +295,8 @@ class TraceLinker:
             for future in as_completed(futures):
                 future.result()  # Wait for all threads to complete and handle any exceptions
 
+        for tid, ops in self.kineto_tid_cpu_ops_map.items():
+            self.logger.debug(f"wxftest calculate_exclusive_dur tid: {tid}, ops: {ops}")
         self.logger.info("Exclusive durations for Kineto operators calculated successfully.")
 
     @staticmethod
@@ -517,6 +519,7 @@ class TraceLinker:
                     continue
                 self.link_ops(pytorch_op, kineto_op, cpu_ev_idx_to_gpu_ops_map)
         self.logger.debug(f"wxftest: self.pytorch_op_id_to_kineto_ops_map: {self.pytorch_op_id_to_kineto_ops_map}")
+        self.logger.debug(f"wxftest: self.pytorch_op_id_to_exclusive_dur_map: {self.pytorch_op_id_to_exclusive_dur_map}")
         self.logger.info("Completed mapping of PyTorch operators to Kineto operators.")
 
     def group_gpu_ops_by_cpu_launchers(self) -> Dict[str, List[KinetoOperator]]:
@@ -662,6 +665,7 @@ class TraceLinker:
         if kineto_op.ev_idx in cpu_ev_idx_to_gpu_ops_map:
             self.pytorch_op_id_to_kineto_ops_map[pytorch_op.id] = cpu_ev_idx_to_gpu_ops_map[kineto_op.ev_idx]
             self.logger.info(f"wxftest: kineto_op: {kineto_op.ev_idx}: {kineto_op.name}, pytorch op: {pytorch_op.id}")
+        self.logger.info(f"wxftest: link_ops: pytorch_op id: {pytorch_op.id}, kineto_op.exclusive_dur: {kineto_op.exclusive_dur}")
         self.pytorch_op_id_to_inclusive_dur_map[pytorch_op.id] = kineto_op.inclusive_dur
         self.pytorch_op_id_to_exclusive_dur_map[pytorch_op.id] = kineto_op.exclusive_dur
         self.pytorch_op_id_to_timestamp_map[pytorch_op.id] = kineto_op.timestamp
